@@ -1,16 +1,16 @@
 import React from 'react';
 
-class AuthLinks extends React.Component {
+class NotAuthenticatedLinks extends React.Component {
   render() {
     return (
-      <div>
+      <ul>
         <h1>Connexion</h1>
         <ul>
           <li><span onClick={this.props.authHandler}>twitter</span></li>
           <li><span onClick={this.props.authHandler}>google</span></li>
         </ul>
-      </div>
+      </ul>
     );
   }
 }
-export default AuthLinks;
+export default NotAuthenticatedLinks;
