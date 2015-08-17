@@ -22843,7 +22843,7 @@ var routes = _react2['default'].createElement(
   _react2['default'].createElement(Route, { path: 'search', name: 'search', handler: _componentsSearch2['default'] }),
   _react2['default'].createElement(Route, { path: 'results', name: 'results', handler: _componentsResults2['default'] }),
   _react2['default'].createElement(Route, { path: 'profile/:URLid', name: 'profile', handler: _componentsProfileProfileBox2['default'] }),
-  _react2['default'].createElement(NotFoundRoute, { handler: _componentsPageNotFound2['default'] })
+  _react2['default'].createElement(NotFoundRoute, { handler: _componentsPageNotFound2['default'], name: 'pagenotfound' })
 );
 
 _reactRouter2['default'].run(routes, _reactRouter2['default'].HashLocation, function (Root) {
@@ -23181,12 +23181,34 @@ var _profileWrite = require('./profile-write');
 
 var _profileWrite2 = _interopRequireDefault(_profileWrite);
 
+var Navigation = require('react-router').Navigation;
+
 var Profile = _react2['default'].createClass({
   displayName: 'Profile',
 
-  getInitialState: function getInitialState() {
+  mixins: [Navigation],
 
-    return { profile: {
+  // getInitialState: function() {
+  //
+  //     return { profile: {
+  //         URLid: '',
+  //         data: {
+  //           public: {
+  //             firstname:'',
+  //             lastname:'',
+  //           },
+  //           private: {
+  //             mobile:''
+  //           }
+  //         }
+  //       }
+  //     }
+  // },
+
+  componentWillMount: function componentWillMount() {
+    var _this = this;
+
+    this.setState({ profile: {
         URLid: '',
         data: {
           'public': {
@@ -23198,22 +23220,26 @@ var Profile = _react2['default'].createClass({
           }
         }
       }
-    };
-  },
-
-  componentWillMount: function componentWillMount() {
-    var _this = this;
+    });
 
     this.fbref = new Firebase('https://tutobel.firebaseio.com');
 
+    // get and set the profile based on the URLid
     this.fbref.child('users').orderByChild('URLid').equalTo(this.props.params.URLid).on('value', function (s) {
       if (s.exists()) {
-        _this.setState({ user: s.val() });
+        var uid = '';s.forEach(function (childSnapshot) {
+          uid = childSnapshot.key();
+        }); // get the uid
+        if (s.child(uid + '/profile').exists()) {
+          _this.setState({ profile: s.child(uid + '/profile').val() });
+        } // set the profile state found
+        // else { // if no profile yet for this user, create an empty profile
+        //   // do nothing the state is already initialize with empty data
+        //
+        // }
       } else {
-        console.log('hello');
-        //this.fbref.set(this.state.profile);
-      }
-      console.log('profile found ' + s.val());
+          _this.transitionTo('/pagenotfound'); // no profile found! redirect to page-not-found
+        }
     });
   },
 
@@ -23234,10 +23260,14 @@ var Profile = _react2['default'].createClass({
   },
 
   render: function render() {
+    var uiWrite;
+    if (this.props.loggedUser.uid) {
+      uiWrite = _react2['default'].createElement(_profileWrite2['default'], { data: this.state.profile.data, profileHandler: this.handleProfileChange, submitHandler: this.saveProfile });
+    }
     return _react2['default'].createElement(
       'div',
       null,
-      _react2['default'].createElement(_profileWrite2['default'], { data: this.state.profile.data, profileHandler: this.handleProfileChange, submitHandler: this.saveProfile }),
+      uiWrite,
       _react2['default'].createElement(_profileRead2['default'], { 'public': this.state.profile.data['public'] })
     );
   }
@@ -23245,7 +23275,7 @@ var Profile = _react2['default'].createClass({
 exports['default'] = Profile;
 module.exports = exports['default'];
 
-},{"./profile-read":203,"./profile-write":204,"react":195}],203:[function(require,module,exports){
+},{"./profile-read":203,"./profile-write":204,"react":195,"react-router":26}],203:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -23307,7 +23337,7 @@ var ProfileWrite = _react2["default"].createClass({
   },
 
   render: function render() {
-    var data = this.state.data;
+    var data = this.props.data;
     return _react2["default"].createElement(
       "div",
       null,

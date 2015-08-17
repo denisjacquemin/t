@@ -16,7 +16,7 @@ var ProfileWrite = React.createClass({
   },
 
   render: function() {
-    var data = this.state.data;
+    var data = this.props.data;
     return (
       <div>
         <div>

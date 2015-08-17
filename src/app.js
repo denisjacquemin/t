@@ -50,7 +50,7 @@ var routes = (
 			<Route path="search" name="search" handler={Search} />
       <Route path="results" name="results" handler={Results} />
       <Route path="profile/:URLid" name="profile" handler={Profile} />
-      <NotFoundRoute handler={PageNotFound} />
+      <NotFoundRoute handler={PageNotFound} name="pagenotfound" />
     </Route>
 );
 
