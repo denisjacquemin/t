@@ -7,38 +7,8 @@ var Navigation = require('react-router').Navigation
 var Profile = React.createClass({
   mixins: [Navigation],
 
-  // getInitialState: function() {
-  //
-  //     return { profile: {
-  //         URLid: '',
-  //         data: {
-  //           public: {
-  //             firstname:'',
-  //             lastname:'',
-  //           },
-  //           private: {
-  //             mobile:''
-  //           }
-  //         }
-  //       }
-  //     }
-  // },
-
   componentWillMount: function() {
-    this.setState({profile: {
-        URLid: '',
-        data: {
-          public: {
-            firstname:'',
-            lastname:'',
-          },
-          private: {
-            mobile:''
-          }
-        }
-      }
-    });
-
+    this.setState({ profile: {} });
 
     this.fbref = new Firebase('https://tutobel.firebaseio.com');
 
@@ -46,29 +16,59 @@ var Profile = React.createClass({
     this.fbref.child('users').orderByChild('URLid').equalTo(this.props.params.URLid).on('value', (s) => {
       if (s.exists()) {
         var uid = ''; s.forEach(function(childSnapshot) { uid = childSnapshot.key(); }); // get the uid
-        if (s.child(uid + '/profile').exists()) { this.setState({profile: s.child(uid + '/profile').val()}); } // set the profile state found
-        // else { // if no profile yet for this user, create an empty profile
-        //   // do nothing the state is already initialize with empty data
-        //
-        // }
+        if (s.child(uid + '/profile').exists()) {
+          this.setState({profile: s.child(uid + '/profile').val() }); // set the profile state found
+        }
       } else {
         this.transitionTo('/pagenotfound'); // no profile found! redirect to page-not-found
       }
+    });
+
+    this.fbref.child('subjects').on('value', (s) => {
+      this.setState({subjects: s.val()});
     });
   },
 
   handleProfileChange: function(fieldname, value) {
     var profile = this.state.profile;
-
-    switch(fieldname) {
-      case 'firstname': profile.data.public.firstname = value; break;
-    }
+    this.addNode(profile, value, 'data.public.' + fieldname );
     this.setState({profile: profile });
+    this.saveProfile();
     console.log('Profile State updated: ' + JSON.stringify(profile));
   },
 
+  handleAddRemoveSubject: function(level, fieldname, value) {
+    var profile = this.state.profile;
+
+    if (value) { // value == true => add
+      this.addNode(profile, true, 'data.subjects.' + level + '.' + fieldname);
+    } else { // value == false => remove
+      delete profile.data.subjects[level][fieldname];
+    }
+
+    this.setState({profile: profile});
+    this.saveProfile();
+  },
+
+  addNode: function (obj, value, path) {
+    if (typeof path === "string") {
+        var path = path.split('.');
+    }
+
+    if(path.length > 1){
+        var p=path.shift();
+        if(obj[p]==null || typeof obj[p]!== 'object'){
+             obj[p] = {};
+        }
+        this.addNode(obj[p], value, path);
+    }else{
+        obj[path[0]] = value;
+    }
+  },
+
   saveProfile: function() {
-    this.fbref.child('users').child(this.props.loggedUser.uid).child('profile').update(this.state.profile);
+    console.log('this.state.profile: ' + JSON.stringify(this.state.profile));
+    this.fbref.child(this.props.loggedUser.uid).child('profile').update(this.state.profile);
     console.log('profile saved to fb');
   },
 
@@ -78,12 +78,15 @@ var Profile = React.createClass({
   render: function() {
     var uiWrite;
     if (this.props.loggedUser.uid ) {
-      uiWrite =  <ProfileWrite data={this.state.profile.data} profileHandler={this.handleProfileChange} submitHandler={this.saveProfile} />
+      uiWrite =  <ProfileWrite data={this.state.profile.data}
+                               profileHandler={this.handleProfileChange}
+                               addRemoveSubject={this.handleAddRemoveSubject}
+                               submitHandler={this.saveProfile} />
     }
     return (
       <div>
         { uiWrite }
-        <ProfileRead public={this.state.profile.data.public}  />
+        <ProfileRead data={this.state.profile.data} subjects={this.state.subjects} />
       </div>
     );
   }

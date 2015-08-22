@@ -22850,7 +22850,7 @@ _reactRouter2['default'].run(routes, _reactRouter2['default'].HashLocation, func
   _react2['default'].render(_react2['default'].createElement(Root, null), document.body);
 });
 
-},{"./components/menu-top/menu-top":199,"./components/page-not-found":201,"./components/profile/profile-box":202,"./components/results":205,"./components/search":206,"react":195,"react-router":26}],197:[function(require,module,exports){
+},{"./components/menu-top/menu-top":199,"./components/page-not-found":201,"./components/profile/profile-box":202,"./components/results":209,"./components/search":210,"react":195,"react-router":26}],197:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -23188,39 +23188,10 @@ var Profile = _react2['default'].createClass({
 
   mixins: [Navigation],
 
-  // getInitialState: function() {
-  //
-  //     return { profile: {
-  //         URLid: '',
-  //         data: {
-  //           public: {
-  //             firstname:'',
-  //             lastname:'',
-  //           },
-  //           private: {
-  //             mobile:''
-  //           }
-  //         }
-  //       }
-  //     }
-  // },
-
   componentWillMount: function componentWillMount() {
     var _this = this;
 
-    this.setState({ profile: {
-        URLid: '',
-        data: {
-          'public': {
-            firstname: '',
-            lastname: ''
-          },
-          'private': {
-            mobile: ''
-          }
-        }
-      }
-    });
+    this.setState({ profile: {} });
 
     this.fbref = new Firebase('https://tutobel.firebaseio.com');
 
@@ -23231,44 +23202,76 @@ var Profile = _react2['default'].createClass({
           uid = childSnapshot.key();
         }); // get the uid
         if (s.child(uid + '/profile').exists()) {
-          _this.setState({ profile: s.child(uid + '/profile').val() });
-        } // set the profile state found
-        // else { // if no profile yet for this user, create an empty profile
-        //   // do nothing the state is already initialize with empty data
-        //
-        // }
+          _this.setState({ profile: s.child(uid + '/profile').val() }); // set the profile state found
+        }
       } else {
           _this.transitionTo('/pagenotfound'); // no profile found! redirect to page-not-found
         }
+    });
+
+    this.fbref.child('subjects').on('value', function (s) {
+      _this.setState({ subjects: s.val() });
     });
   },
 
   handleProfileChange: function handleProfileChange(fieldname, value) {
     var profile = this.state.profile;
-
-    switch (fieldname) {
-      case 'firstname':
-        profile.data['public'].firstname = value;break;
-    }
+    this.addNode(profile, value, 'data.public.' + fieldname);
     this.setState({ profile: profile });
+    this.saveProfile();
     console.log('Profile State updated: ' + JSON.stringify(profile));
   },
 
+  handleAddRemoveSubject: function handleAddRemoveSubject(level, fieldname, value) {
+    var profile = this.state.profile;
+
+    if (value) {
+      // value == true => add
+      this.addNode(profile, true, 'data.subjects.' + level + '.' + fieldname);
+    } else {
+      // value == false => remove
+      delete profile.data.subjects[level][fieldname];
+    }
+
+    this.setState({ profile: profile });
+    this.saveProfile();
+  },
+
+  addNode: function addNode(obj, value, path) {
+    if (typeof path === "string") {
+      var path = path.split('.');
+    }
+
+    if (path.length > 1) {
+      var p = path.shift();
+      if (obj[p] == null || typeof obj[p] !== 'object') {
+        obj[p] = {};
+      }
+      this.addNode(obj[p], value, path);
+    } else {
+      obj[path[0]] = value;
+    }
+  },
+
   saveProfile: function saveProfile() {
-    this.fbref.child('users').child(this.props.loggedUser.uid).child('profile').update(this.state.profile);
+    console.log('this.state.profile: ' + JSON.stringify(this.state.profile));
+    this.fbref.child(this.props.loggedUser.uid).child('profile').update(this.state.profile);
     console.log('profile saved to fb');
   },
 
   render: function render() {
     var uiWrite;
     if (this.props.loggedUser.uid) {
-      uiWrite = _react2['default'].createElement(_profileWrite2['default'], { data: this.state.profile.data, profileHandler: this.handleProfileChange, submitHandler: this.saveProfile });
+      uiWrite = _react2['default'].createElement(_profileWrite2['default'], { data: this.state.profile.data,
+        profileHandler: this.handleProfileChange,
+        addRemoveSubject: this.handleAddRemoveSubject,
+        submitHandler: this.saveProfile });
     }
     return _react2['default'].createElement(
       'div',
       null,
       uiWrite,
-      _react2['default'].createElement(_profileRead2['default'], { 'public': this.state.profile.data['public'] })
+      _react2['default'].createElement(_profileRead2['default'], { data: this.state.profile.data, subjects: this.state.subjects })
     );
   }
 });
@@ -23286,10 +23289,30 @@ var _react = require('react');
 
 var _react2 = _interopRequireDefault(_react);
 
+var _subjectsRead = require('./subjects-read');
+
+var _subjectsRead2 = _interopRequireDefault(_subjectsRead);
+
 var ProfileRead = _react2['default'].createClass({
   displayName: 'ProfileRead',
 
+  getDefaultProps: function getDefaultProps() {
+    return {
+      data: {
+        'public': {
+          firstname: '',
+          lastname: ''
+        },
+        subjects: {
+          primaire: {},
+          secondaire: {}
+        }
+      }
+    };
+  },
+
   render: function render() {
+    var firstname = this.props.data['public'].firstname || '';
     return _react2['default'].createElement(
       'div',
       null,
@@ -23301,27 +23324,50 @@ var ProfileRead = _react2['default'].createClass({
       _react2['default'].createElement(
         'div',
         null,
-        this.props['public'].firstname
-      )
+        this.props.data['public'].firstname
+      ),
+      _react2['default'].createElement(_subjectsRead2['default'], { values: this.props.data.subjects, subjects: this.props.subjects })
     );
   }
 });
 exports['default'] = ProfileRead;
 module.exports = exports['default'];
 
-},{"react":195}],204:[function(require,module,exports){
-"use strict";
+},{"./subjects-read":207,"react":195}],204:[function(require,module,exports){
+'use strict';
 
 exports.__esModule = true;
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 var _react = require('react');
 
 var _react2 = _interopRequireDefault(_react);
 
-var ProfileWrite = _react2["default"].createClass({
-  displayName: "ProfileWrite",
+var _subjectsWrite = require('./subjects-write');
+
+var _subjectsWrite2 = _interopRequireDefault(_subjectsWrite);
+
+var ProfileWrite = _react2['default'].createClass({
+  displayName: 'ProfileWrite',
+
+  getDefaultProps: function getDefaultProps() {
+    return {
+      data: {
+        'public': {
+          firstname: '',
+          lastname: '',
+          subjects: {
+            primaire: {},
+            secondaire: {}
+          }
+        },
+        'private': {
+          mobile: ''
+        }
+      }
+    };
+  },
 
   getInitialState: function getInitialState() {
     return { data: this.props.data };
@@ -23336,37 +23382,408 @@ var ProfileWrite = _react2["default"].createClass({
     this.props.profileHandler(e.target.name, e.target.value);
   },
 
+  handleAddRemoveSubject: function handleAddRemoveSubject(level, fieldname, value) {
+    this.props.addRemoveSubject(level, fieldname, value);
+  },
+
   render: function render() {
-    var data = this.props.data;
-    return _react2["default"].createElement(
-      "div",
+    return _react2['default'].createElement(
+      'div',
       null,
-      _react2["default"].createElement(
-        "div",
+      _react2['default'].createElement(
+        'div',
         null,
-        _react2["default"].createElement(
-          "h1",
+        _react2['default'].createElement(
+          'h1',
           null,
-          "ProfileWrite"
+          'ProfileWrite'
         ),
-        _react2["default"].createElement(
-          "div",
+        _react2['default'].createElement(
+          'div',
           null,
-          _react2["default"].createElement(
-            "form",
+          _react2['default'].createElement(
+            'form',
             { onSubmit: this.handleSubmit },
-            _react2["default"].createElement("input", { type: "text", name: "firstname", onChange: this.handleDataChange, value: data["public"].firstname }),
-            _react2["default"].createElement("input", { type: "submit", value: "Enregistrer" })
+            _react2['default'].createElement('input', { type: 'text', name: 'firstname', onChange: this.handleDataChange, value: this.props.data['public'].firstname }),
+            _react2['default'].createElement(_subjectsWrite2['default'], { addRemoveSubject: this.handleAddRemoveSubject, values: this.props.data.subjects }),
+            _react2['default'].createElement('input', { type: 'submit', value: 'Enregistrer' })
           )
         )
       )
     );
   }
 });
-exports["default"] = ProfileWrite;
-module.exports = exports["default"];
+exports['default'] = ProfileWrite;
+module.exports = exports['default'];
 
-},{"react":195}],205:[function(require,module,exports){
+},{"./subjects-write":208,"react":195}],205:[function(require,module,exports){
+'use strict';
+
+exports.__esModule = true;
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var _react = require('react');
+
+var _react2 = _interopRequireDefault(_react);
+
+var SubjectRead = _react2['default'].createClass({
+  displayName: 'SubjectRead',
+
+  render: function render() {
+    return _react2['default'].createElement(
+      'li',
+      null,
+      _react2['default'].createElement(
+        'span',
+        null,
+        this.props.label
+      )
+    );
+  }
+});
+exports['default'] = SubjectRead;
+module.exports = exports['default'];
+
+},{"react":195}],206:[function(require,module,exports){
+'use strict';
+
+exports.__esModule = true;
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var _react = require('react');
+
+var _react2 = _interopRequireDefault(_react);
+
+var SubjectWrite = _react2['default'].createClass({
+  displayName: 'SubjectWrite',
+
+  handleChange: function handleChange(level, e) {
+    console.log('level changed: ' + level + ' ' + e.target.name + ' ' + e.target.checked);
+    this.props.addRemoveSubject(level, e.target.name, e.target.checked);
+  },
+
+  render: function render() {
+    return _react2['default'].createElement(
+      'li',
+      null,
+      _react2['default'].createElement('input', { type: 'checkbox',
+        name: this.props.name,
+        onChange: this.handleChange.bind(this, this.props.level),
+        checked: this.props.checked }),
+      _react2['default'].createElement(
+        'label',
+        null,
+        this.props.label
+      )
+    );
+  }
+});
+exports['default'] = SubjectWrite;
+module.exports = exports['default'];
+
+},{"react":195}],207:[function(require,module,exports){
+'use strict';
+
+exports.__esModule = true;
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var _react = require('react');
+
+var _react2 = _interopRequireDefault(_react);
+
+var _subjectRead = require('./subject-read');
+
+var _subjectRead2 = _interopRequireDefault(_subjectRead);
+
+var SubjectsRead = _react2['default'].createClass({
+  displayName: 'SubjectsRead',
+
+  getDefaultProps: function getDefaultProps() {
+    return {
+      values: {
+        primaire: {},
+        secondaire: {}
+      }
+    };
+  },
+
+  render: function render() {
+    var primaireList = [];
+    if (this.props.values.primaire != undefined) {
+      for (var name in this.props.values.primaire) {
+        primaireList.push(_react2['default'].createElement(_subjectRead2['default'], { label: this.props.subjects.primaire[name] }));
+      }
+    }
+    var primaireUI = _react2['default'].createElement('ul', {}, primaireList);
+
+    var secondaireList = [];
+    if (this.props.values.secondaire != undefined) {
+      for (var name in this.props.values.secondaire) {
+        secondaireList.push(_react2['default'].createElement(_subjectRead2['default'], { label: this.props.subjects.secondaire[name] }));
+      }
+    }
+    var secondaireUI = _react2['default'].createElement('ul', {}, secondaireList);
+
+    return _react2['default'].createElement(
+      'ul',
+      null,
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Primaire'
+        ),
+        primaireUI
+      ),
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Secondaire'
+        ),
+        secondaireUI
+      )
+    );
+  }
+});
+exports['default'] = SubjectsRead;
+module.exports = exports['default'];
+
+},{"./subject-read":205,"react":195}],208:[function(require,module,exports){
+'use strict';
+
+exports.__esModule = true;
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+var _react = require('react');
+
+var _react2 = _interopRequireDefault(_react);
+
+var _subjectWrite = require('./subject-write');
+
+var _subjectWrite2 = _interopRequireDefault(_subjectWrite);
+
+var SubjectsWrite = _react2['default'].createClass({
+  displayName: 'SubjectsWrite',
+
+  getDefaultProps: function getDefaultProps() {
+    return {
+      values: {
+        primaire: {},
+        secondaire: {}
+      }
+    };
+  },
+
+  getInitialState: function getInitialState() {
+
+    return {
+      values: {
+        primaire: {},
+        secondaire: {}
+      }
+    };
+  },
+
+  componentWillMount: function componentWillMount() {
+    var _this = this;
+
+    this.fbref = new Firebase('https://tutobel.firebaseio.com/subjects');
+    var primaire = {};
+    this.fbref.child('primaire').on("value", function (s) {
+      s.forEach(function (subject) {
+        primaire[subject.key()] = subject.val();
+      });
+      _this.setState({ primaire: primaire });
+    });
+    var secondaire = {};
+    this.fbref.child('secondaire').on("value", function (s) {
+      s.forEach(function (subject) {
+        secondaire[subject.key()] = subject.val();
+      });
+      _this.setState({ secondaire: secondaire });
+    });
+  },
+
+  handleUID: function handleUID(uid, name, URLid) {
+    this.props.uidHandler(uid, name, URLid);
+  },
+
+  handleChange: function handleChange(level, fieldname, value) {
+    this.props.addRemoveSubject(level, fieldname, value);
+  },
+
+  isSubjectChecked: function isSubjectChecked(obj /*, level1, level2, ... levelN*/) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    for (var i = 0; i < args.length; i++) {
+      if (!obj || !obj.hasOwnProperty(args[i])) {
+        return false;
+      }
+      obj = obj[args[i]];
+    }
+    return true;
+  },
+
+  render: function render() {
+    var primaireList = [];
+    for (var name in this.state.primaire) {
+      var checked = this.isSubjectChecked(this.props.values, 'primaire', name);
+      primaireList.push(_react2['default'].createElement(_subjectWrite2['default'], { name: name, label: this.state.primaire[name], checked: checked, addRemoveSubject: this.handleChange, level: 'primaire' }));
+    }
+    var primaireUI = _react2['default'].createElement('ul', {}, primaireList);
+
+    var secondaireList = [];
+    for (var name in this.state.secondaire) {
+      var checked = this.isSubjectChecked(this.props.values, 'secondaire', name);
+      secondaireList.push(_react2['default'].createElement(_subjectWrite2['default'], { name: name, label: this.state.secondaire[name], checked: checked, addRemoveSubject: this.handleChange, level: 'secondaire' }));
+    }
+    var secondaireUI = _react2['default'].createElement('ul', {}, secondaireList);
+
+    return _react2['default'].createElement(
+      'ul',
+      null,
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Primaire'
+        ),
+        primaireUI
+      ),
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Secondaire'
+        ),
+        secondaireUI
+      ),
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Superieur/Universitaire'
+        ),
+        _react2['default'].createElement(
+          'ul',
+          null,
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'primaire', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Primaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'secondaire', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Secondaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'sup', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Superieur/Universitaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'adulte', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Adulte'
+            )
+          )
+        )
+      ),
+      _react2['default'].createElement(
+        'li',
+        null,
+        _react2['default'].createElement(
+          'h1',
+          null,
+          'Adulte'
+        ),
+        _react2['default'].createElement(
+          'ul',
+          null,
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'primaire', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Primaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'secondaire', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Secondaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'sup', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Superieur/Universitaire'
+            )
+          ),
+          _react2['default'].createElement(
+            'li',
+            null,
+            _react2['default'].createElement('input', { type: 'checkbox', value: 'adulte', onChange: this.handleChange }),
+            _react2['default'].createElement(
+              'label',
+              null,
+              'Adulte'
+            )
+          )
+        )
+      )
+    );
+  }
+});
+exports['default'] = SubjectsWrite;
+module.exports = exports['default'];
+
+},{"./subject-write":206,"react":195}],209:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -23404,7 +23821,7 @@ var Results = _react2['default'].createClass({
 exports['default'] = Results;
 module.exports = exports['default'];
 
-},{"react":195,"react-router":26}],206:[function(require,module,exports){
+},{"react":195,"react-router":26}],210:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -23422,12 +23839,58 @@ var Search = _react2['default'].createClass({
 
   mixins: [Navigation],
 
+  getInitialState: function getInitialState() {
+    return { levels: null, subjects: null };
+  },
+
   handleSearch: function handleSearch() {
     console.log('Searching');
     this.transitionTo('results');
   },
 
+  componentWillMount: function componentWillMount() {
+    var _this = this;
+
+    this.fbref = new Firebase('https://tutobel.firebaseio.com');
+    this.fbref.child('levels').on('value', function (s) {
+      _this.setState({ levels: s.val() });
+    });
+  },
+
+  handleLevelChange: function handleLevelChange(e) {
+    var _this2 = this;
+
+    console.log('handleLevelChange: ' + e.target.value);
+    this.fbref.child('subjects').child(e.target.value).on('value', function (s) {
+      _this2.setState({ subjects: s.val() });
+    });
+  },
+
   render: function render() {
+    var levelOptions = [];
+    if (this.state.levels) {
+      for (var name in this.state.levels) {
+        levelOptions.push(_react2['default'].createElement(
+          'option',
+          { value: name },
+          this.state.levels[name]
+        ));
+      }
+    }
+    var levelOptionsUI = _react2['default'].createElement('select', { onChange: this.handleLevelChange }, levelOptions);
+
+    var subjectOptions = [];
+    if (this.state.subjects) {
+      for (var name in this.state.subjects) {
+        subjectOptions.push(_react2['default'].createElement(
+          'option',
+          null,
+          this.state.subjects[name]
+        ));
+      }
+    }
+    var subjectOptionsUI = _react2['default'].createElement('select', {}, subjectOptions);
+
     return _react2['default'].createElement(
       'div',
       null,
@@ -23441,16 +23904,16 @@ var Search = _react2['default'].createClass({
         null,
         _react2['default'].createElement(
           'label',
-          { 'for': 'subject' },
-          'Matière'
-        ),
-        _react2['default'].createElement('input', { type: 'text', name: 'subject' }),
-        _react2['default'].createElement(
-          'label',
           { 'for': 'level' },
           'Niveau'
         ),
-        _react2['default'].createElement('input', { type: 'text', name: 'level' }),
+        levelOptionsUI,
+        _react2['default'].createElement(
+          'label',
+          { 'for': 'subject' },
+          'Matière'
+        ),
+        subjectOptionsUI,
         _react2['default'].createElement(
           'label',
           { 'for': 'area' },
